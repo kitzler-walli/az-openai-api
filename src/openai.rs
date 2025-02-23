@@ -4,25 +4,44 @@ use ureq::{Agent, AgentBuilder};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Auth {
 	pub api_key: String,
-	pub organization: Option<String>,
 }
 
 impl Clone for Auth {
 	fn clone(&self) -> Self {
-		Self { api_key: self.api_key.clone(), organization: self.organization.clone() }
+		Self { api_key: self.api_key.clone() }
 	}
 }
 
 #[allow(dead_code)]
 impl Auth {
 	pub fn new(api_key: &str) -> Auth {
-		Auth { api_key: api_key.to_string(), organization: None }
+		Auth { api_key: api_key.to_string() }
 	}
 
 	pub fn from_env() -> Result<Self, String> {
 		let api_key =
-			std::env::var("OPENAI_API_KEY").map_err(|_| "Missing OPENAI_API_KEY".to_string())?;
-		Ok(Self { api_key, organization: None })
+			std::env::var("API_KEY").map_err(|_| "Missing API_KEY".to_string())?;
+		Ok(Self { api_key })
+	}
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ApiType {
+	Audio,
+	Chat,
+	Completions,
+	Images,
+}
+
+impl ApiType {
+	pub fn from_env() -> Result<Self, String> {
+		match std::env::var("API_TYPE").as_deref() {
+			Ok("audio") => Ok(ApiType::Audio),
+			Ok("chat") => Ok(ApiType::Chat),
+			Ok("completions") => Ok(ApiType::Completions),
+			Ok("images") => Ok(ApiType::Images),
+			_ => Err("Invalid or missing API_TYPE".to_string()),
+		}
 	}
 }
 
@@ -30,19 +49,20 @@ impl Auth {
 pub struct OpenAI {
 	pub auth: Auth,
 	pub api_url: String,
+	pub api_type: ApiType,
 	pub(crate) agent: Agent,
 }
 
 impl Clone for OpenAI {
 	fn clone(&self) -> Self {
-		Self { auth: self.auth.clone(), api_url: self.api_url.clone(), agent: self.agent.clone() }
+		Self { auth: self.auth.clone(), api_url: self.api_url.clone(), api_type: self.api_type, agent: self.agent.clone() }
 	}
 }
 
 #[allow(dead_code)]
 impl OpenAI {
-	pub fn new(auth: Auth, api_url: &str) -> OpenAI {
-		OpenAI { auth, api_url: api_url.to_string(), agent: AgentBuilder::new().build() }
+	pub fn new(auth: Auth, api_url: &str, api_type: ApiType) -> OpenAI {
+		OpenAI { auth, api_url: api_url.to_string(), api_type, agent: AgentBuilder::new().build() }
 	}
 
 	pub fn set_proxy(mut self, proxy: &str) -> OpenAI {
@@ -71,5 +91,6 @@ impl OpenAI {
 #[cfg(test)]
 pub fn new_test_openai() -> OpenAI {
 	let auth = Auth::from_env().unwrap();
-	OpenAI::new(auth, "https://api.openai.com/v1/").use_env_proxy()
+	let api_type = ApiType::from_env().unwrap_or(ApiType::Chat); // Default to Chat if not specified
+	OpenAI::new(auth, "https://kwnet-openai.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-02-15-preview", api_type).use_env_proxy()
 }

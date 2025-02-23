@@ -9,7 +9,7 @@ use crate::requests::Requests;
 use crate::*;
 use serde::{Deserialize, Serialize};
 
-use super::{completions::Completion, CHAT_COMPLETION_CREATE};
+use super::completions::Completion;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChatBody {
@@ -86,8 +86,13 @@ pub trait ChatApi {
 
 impl ChatApi for OpenAI {
 	fn chat_completion_create(&self, chat_body: &ChatBody) -> ApiResult<Completion> {
+
+		if self.api_type != ApiType::Chat {
+			return Err(Error::RequestError("This function is only available for the Chat API".to_string()));
+		}
+
 		let request_body = serde_json::to_value(chat_body).unwrap();
-		let res = self.post(CHAT_COMPLETION_CREATE, request_body)?;
+		let res = self.post(request_body)?;
 		let completion: Completion = serde_json::from_value(res.clone()).unwrap();
 		Ok(completion)
 	}

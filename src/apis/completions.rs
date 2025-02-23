@@ -10,7 +10,7 @@ use crate::requests::Requests;
 use crate::*;
 use serde::{Deserialize, Serialize};
 
-use super::{Usage, COMPLETION_CREATE};
+use super::Usage;
 
 /// Given a prompt, the model will return one or more predicted completions,
 /// and can also return the probabilities of alternative tokens at each position.
@@ -133,8 +133,13 @@ pub trait CompletionsApi {
 
 impl CompletionsApi for OpenAI {
 	fn completion_create(&self, completions_body: &CompletionsBody) -> ApiResult<Completion> {
+
+		if self.api_type != ApiType::Completions {
+			return Err(Error::RequestError("This function is only available for the Completions API".to_string()));
+		}
+
 		let request_body = serde_json::to_value(completions_body).unwrap();
-		let res = self.post(COMPLETION_CREATE, request_body)?;
+		let res = self.post(request_body)?;
 		let completion: Completion = serde_json::from_value(res.clone()).unwrap();
 		Ok(completion)
 	}

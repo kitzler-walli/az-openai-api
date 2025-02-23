@@ -3,12 +3,12 @@
 
 //! Images API
 
-use super::{IMAGES_CREATE, IMAGES_EDIT, IMAGES_VARIATIONS};
 use crate::mpart::Mpart as Multipart;
 use crate::requests::Requests;
 use crate::*;
 use serde::{Deserialize, Serialize};
 use std::{fs::File, str};
+use crate::openai::ApiType;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ImagesBody {
@@ -61,7 +61,6 @@ pub trait ImagesApi {
 	fn image_build_send_data_from_body(
 		&self,
 		images_edit_body: ImagesEditBody,
-		url: &str,
 	) -> ApiResult<Images>;
 	/// Creates an edited or extended image given an original image and a prompt.
 	fn image_edit(&self, images_edit_body: ImagesEditBody) -> ApiResult<Images>;
@@ -72,7 +71,7 @@ pub trait ImagesApi {
 impl ImagesApi for OpenAI {
 	fn image_create(&self, images_body: &ImagesBody) -> ApiResult<Images> {
 		let request_body = serde_json::to_value(images_body).unwrap();
-		let res = self.post(IMAGES_CREATE, request_body)?;
+		let res = self.post(request_body)?;
 		let images: Images = serde_json::from_value(res.clone()).unwrap();
 		Ok(images)
 	}
@@ -80,13 +79,17 @@ impl ImagesApi for OpenAI {
 	fn image_build_send_data_from_body(
 		&self,
 		images_edit_body: ImagesEditBody,
-		url: &str,
 	) -> ApiResult<Images> {
+		
+		if self.api_type != ApiType::Images {
+			return Err(Error::RequestError("This function is only available for the Images API".to_string()));
+		}
+
 		let mut send_data = Multipart::new();
 
-		if IMAGES_EDIT == url {
-			send_data.add_text("prompt", images_edit_body.images_body.prompt);
-		}
+		// if IMAGES_EDIT == url {
+		// 	send_data.add_text("prompt", images_edit_body.images_body.prompt);
+		// }
 		if let Some(n) = images_edit_body.images_body.n {
 			send_data.add_text("n", n.to_string());
 		}
@@ -104,17 +107,17 @@ impl ImagesApi for OpenAI {
 		}
 		send_data.add_stream("image", images_edit_body.image, Some("blob"), Some(mime::IMAGE_PNG));
 
-		let res = self.post_multipart(url, send_data)?;
+		let res = self.post_multipart(send_data)?;
 		let images: Images = serde_json::from_value(res.clone()).unwrap();
 		Ok(images)
 	}
 
 	fn image_edit(&self, images_edit_body: ImagesEditBody) -> ApiResult<Images> {
-		self.image_build_send_data_from_body(images_edit_body, IMAGES_EDIT)
+		self.image_build_send_data_from_body(images_edit_body)
 	}
 
 	fn image_variation(&self, images_edit_body: ImagesEditBody) -> ApiResult<Images> {
-		self.image_build_send_data_from_body(images_edit_body, IMAGES_VARIATIONS)
+		self.image_build_send_data_from_body(images_edit_body)
 	}
 }
 

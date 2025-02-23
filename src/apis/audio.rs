@@ -10,8 +10,6 @@ use serde::{Deserialize, Serialize};
 use crate::requests::Requests;
 use crate::*;
 
-use super::{AUDIO_TRANSCRIPTION_CREATE, AUDIO_TRANSLATIONS_CREATE};
-
 #[derive(Debug)]
 pub struct AudioBody {
 	/// The audio file to transcribe,
@@ -50,6 +48,10 @@ impl AudioApi for OpenAI {
 	fn audio_transcription_create(&self, audio_body: AudioBody) -> ApiResult<Audio> {
 		let mut send_data = Multipart::new();
 
+		if self.api_type != ApiType::Audio {
+			return Err(Error::RequestError("This function is only available for the Audio API".to_string()));
+		}
+
 		send_data.add_text("model", audio_body.model);
 		if let Some(prompt) = audio_body.prompt {
 			send_data.add_text("prompt", prompt);
@@ -66,7 +68,7 @@ impl AudioApi for OpenAI {
 
 		send_data.add_stream("file", audio_body.file, Some("audio.mp3"), None);
 
-		let res = self.post_multipart(AUDIO_TRANSCRIPTION_CREATE, send_data)?;
+		let res = self.post_multipart(send_data)?;
 		let audio: Audio = serde_json::from_value(res.clone()).unwrap();
 		Ok(audio)
 	}
@@ -74,6 +76,10 @@ impl AudioApi for OpenAI {
 	fn audio_translation_create(&self, audio_body: AudioBody) -> ApiResult<Audio> {
 		let mut send_data = Multipart::new();
 
+		if self.api_type != ApiType::Audio {
+			return Err(Error::RequestError("This function is only available for the Audio API".to_string()));
+		}
+
 		send_data.add_text("model", audio_body.model);
 		if let Some(prompt) = audio_body.prompt {
 			send_data.add_text("prompt", prompt);
@@ -90,7 +96,7 @@ impl AudioApi for OpenAI {
 
 		send_data.add_stream("file", audio_body.file, Some("audio.mp3"), None);
 
-		let res = self.post_multipart(AUDIO_TRANSLATIONS_CREATE, send_data)?;
+		let res = self.post_multipart(send_data)?;
 		let audio: Audio = serde_json::from_value(res.clone()).unwrap();
 		Ok(audio)
 	}
